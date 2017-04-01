@@ -1,9 +1,16 @@
 import zipfile
-from NamespaceStack import NamespaceStack
-from StringBlock import StringBlock
-from Utils import Utils
-from IntReader import IntReader
-from TypeValue import TypeValue
+try:
+    from . import NamespaceStack
+    from . import StringBlock 
+    from . import Utils
+    from . import IntReader
+    from . import TypeValue
+except:
+    import NamespaceStack
+    import StringBlock 
+    import Utils
+    import IntReader
+    import TypeValue
 
 fw = None
 
@@ -11,7 +18,12 @@ fw = None
 def printf(msg):
     #print(msg)
     global fw
-    fw.write(msg+"\n")
+    if fw:
+        try:
+            fw.write(msg+"\n")
+        except:
+            fw.write("error...")
+    return msg+"\n"
 
 
 class AXmlResourceParser:
@@ -19,7 +31,7 @@ class AXmlResourceParser:
     strings = None
     m_event = 0
     decrease_depth = False
-    namespaces = NamespaceStack()
+    namespaces = NamespaceStack.NamespaceStack()
 
     CHUNK_AXML_FILE = 0x00080003
     CHUNK_RESOURCEIDS = 0x00080180
@@ -47,12 +59,12 @@ class AXmlResourceParser:
 
     def __init__(self, data = None):
         self.date = data
-        self.reader = IntReader(data=data)
+        self.reader = IntReader.IntReader(data=data)
 
     def open(self, data = None):
         if data != None:
             self.date = data
-            self.reader = IntReader(data=data)
+            self.reader = IntReader.IntReader(data=data)
 
     def close(self):
         self.data = None
@@ -71,9 +83,9 @@ class AXmlResourceParser:
 
     def do_next(self):
         if not self.strings:
-            Utils.check_type(self.reader, self.CHUNK_AXML_FILE)
+            Utils.Utils.check_type(self.reader, self.CHUNK_AXML_FILE)
             self.reader.skip_int()
-            self.strings = StringBlock.read(self.reader)
+            self.strings = StringBlock.StringBlock.read(self.reader)
             self.namespaces.increase_depth()
             self.m_operational = True
 
@@ -91,6 +103,7 @@ class AXmlResourceParser:
             if event != self.START_DOCUMENT:
                 chunk_type = self.reader.read_int()
                 if not chunk_type:
+                    self.m_event = self.END_DOCUMENT
                     break
             if chunk_type == self.CHUNK_RESOURCEIDS:
                 chunk_size = self.reader.read_int()
@@ -242,11 +255,14 @@ class APK:
     FRACTION_UNITS = ["%", "%p", "", "", "", "", "", ""]
     RADIX_MULTS = [0.00390625, 3.051758E-005, 1.192093E-007, 4.656613E-010]
     DIMENSION_UNITS = ["px", "dip", "sp", "pt", "in", "mm", "", ""]
+    AndroidManifest = ""
+    Parse_Flag = False 
 
     def __init__(self, xmlstr):
         self.xml = AXmlResourceParser(xmlstr)
         self.package = 'www.sbfeng.cn.unknown'
         self.version = '1.0'
+        self.AndroidManifest = ""
 
     def parse_androidxml(self):
         indent = ""
@@ -257,31 +273,31 @@ class APK:
             if node == self.xml.END_DOCUMENT:
                 break
             if node == self.xml.START_DOCUMENT:
-                printf('''<?xml version="1.0" encoding="utf-8"?>''')
+                self.AndroidManifest += printf('''<?xml version="1.0" encoding="utf-8"?>''')
                 continue
             if node == self.xml.START_TAG:
-                printf("%s<%s%s" % (indent,self.get_namespace_prefix(self.xml.get_prefix()), self.xml.get_name()))
+                self.AndroidManifest += printf("%s<%s%s" % (indent,self.get_namespace_prefix(self.xml.get_prefix()), self.xml.get_name()))
                 indent += self.indentStep
 
                 namespaceCountBefore = self.xml.get_namespace_count(self.xml.get_depth() - 1)
                 namespaceCount = self.xml.get_namespace_count(self.xml.get_depth())
                 for i in range(namespaceCountBefore,namespaceCount,1):
-                    printf("%sxmlns:%s=\"%s\""%(indent,
+                    self.AndroidManifest += printf("%sxmlns:%s=\"%s\""%(indent,
                           self.xml.get_namespace_prefix(i),self.xml.get_namespace_uri(i)))
 
                 for i in range(0,int(self.xml.getAttributeCount()),1):
-                    printf('''%s%s%s="%s"''' % (indent,
+                    self.AndroidManifest += printf('''%s%s%s="%s"''' % (indent,
                                 self.get_namespace_prefix(self.xml.get_attribute_prefix(i)),
                                 self.xml.getAttributeName(i), self.get_sttribute_value(self.xml, i)))
 
-                printf("%s>" % indent);
+                self.AndroidManifest += printf("%s>" % indent);
                 continue
             if node == self.xml.END_TAG:
                 indent = indent[:len(indent) - len(self.indentStep)]
-                printf("%s</%s%s>" % (indent, self.get_namespace_prefix(self.xml.get_prefix()),self.xml.get_name()))
+                self.AndroidManifest += printf("%s</%s%s>" % (indent, self.get_namespace_prefix(self.xml.get_prefix()),self.xml.get_name()))
                 continue
             if node == self.xml.TEXT:
-                printf("%s%s", indent, self.xml.get_text())
+                self.AndroidManifest += printf("%s%s" % (indent, self.xml.get_text()))
                 continue
 
     def get_namespace_prefix(self, prefix):
@@ -297,7 +313,7 @@ class APK:
     def get_sttribute_value(self,axml,i):
         type = axml.get_attribute_type(i)
         data = axml.get_attribute_data(i)
-        TValue = TypeValue()
+        TValue = TypeValue.TypeValue()
         if type == TValue.TYPE_STRING:
             return axml.get_attribute_value(i)
         if type == TValue.TYPE_ATTRIBUTE:
@@ -332,15 +348,37 @@ class APK:
     @staticmethod
     def pack(self, path):
         pass
+    def reserve_manifest(self):
+        flag = False
+        for line in self.AndroidManifest.split("\n"):
+            line = line.strip()
+            if flag:
+                print(line)
+            if 'package=' == line[:len("package=")]:
+                self.package = line[len("package="):]
+                if len(self.package) < 2:
+                    flag = True
+                
+            if 'android:versionName=' == line[:len("android:versionName=")]:
+                self.version = line[len("android:versionName="):]
+                
+    def getpackage(self):
+        if not self.Parse_Flag:
+            self.reserve_manifest()
+        return self.package
+    def getversion(self):
+        if not self.Parse_Flag:
+            self.reserve_manifest()
+        return self.version
 
 
 if __name__ == '__main__':
     global fw
     fw = open("zachary.xml","w")
-    zipFile = zipfile.ZipFile('f5cca01ad38189c78c89655752e3b773.apk')
+    zipFile = zipfile.ZipFile('cmb.pb.1702231742.apk')
     data = zipFile.read('AndroidManifest.xml')
     apk = APK(data)
     apk.parse_androidxml()
-    printf(apk.package)
-    printf(apk.version)
+    print(apk.getpackage())
+    print(apk.getversion())
     fw.close()

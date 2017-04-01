@@ -133,7 +133,7 @@ class NamespaceStack:
         available = len(self.m_data)- self.m_dataLength
         if available > capacity:
             return
-        newLength = (self.m_data.length + available) * 2
+        newLength = (len(self.m_data) + available) * 2
         newData = [0 for i in range(newLength)]
         newData[0:self.m_dataLength] = self.m_data[0:self.m_dataLength]
         self.m_data = newData

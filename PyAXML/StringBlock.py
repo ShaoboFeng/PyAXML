@@ -1,5 +1,8 @@
 #encoding=utf8
-from Utils import Utils
+try:
+    from . import Utils
+except:
+    import Utils
 
 
 class StringBlock:
@@ -12,7 +15,7 @@ class StringBlock:
 
     @staticmethod
     def read(reader):
-        Utils.check_type(reader, StringBlock.CHUNK_TYPE)
+        Utils.Utils.check_type(reader, StringBlock.CHUNK_TYPE)
         chunk_size = reader.read_int()
         string_count = reader.read_int()
         style_offset_count = reader.read_int()
@@ -36,7 +39,7 @@ class StringBlock:
             size=chunk_size-styles_offset
             if (size % 4) != 0:
                 raise Exception("Style data size is not multiple of 4 ("+size+").")
-            block.styles = reader.readIntArray(size / 4)
+            block.styles = reader.read_intarray(size / 4)
         return block
 
     #Returns raw string(without any styling information) at specified index.
@@ -54,7 +57,10 @@ class StringBlock:
         return result
 
     def get_short(self, intarray, offset):
-        value = intarray[int(offset/4)]
+        index = int(offset/4)
+        if len(intarray) <= int(offset/4):
+           index = len(intarray) - 1 
+        value = intarray[index]
         if (offset%4)/2 == 0:
             return value & 0xFFFF
         else:

@@ -35,7 +35,10 @@ class IntReader:
                     return None
                 b = self.m_data[self.m_position]
                 self.m_position += 1
-                result |= (b << pos)
+                if type(b) == int:
+                    result |= (b << pos)
+                else:
+                    result |= (ord(b) << pos)
                 #print(result)
         return result
 
